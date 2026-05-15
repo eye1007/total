@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EYEGENTRY Smart View</title>
+    <title>EYEGENTRY Smart View (Online)</title>
     <style>
         :root {
             --anyeye-blue: #37485e;
@@ -16,11 +16,10 @@
         
         /* 헤더 섹션 */
         header { background: var(--anyeye-blue); color: white; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-        .search-box { width: 40%; }
-        #searchInput { width: 100%; padding: 12px; border-radius: 8px; border: none; font-size: 16px; }
-
-        /* 메인 레이아웃 (iPad 가로 모드 최적화) */
-        .main-container { display: grid; grid-template-columns: 8fr 2fr; gap: 15px; padding: 15px; height: calc(100vh - 80px); }
+        
+        /* 메인 레이아웃 */
+        .main-container { display: flex; flex-direction: column; gap: 15px; padding: 15px; height: calc(100vh - 80px); }
+        .top-grid { display: flex; gap: 15px; flex: none; }
         .section { background: white; border: 1px solid var(--anyeye-border); border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
         .section-title { background: var(--anyeye-light-blue); padding: 10px; font-weight: bold; font-size: 14px; border-bottom: 1px solid var(--anyeye-border); color: var(--anyeye-blue); }
 
@@ -42,226 +41,248 @@
         .visit-item.active { background: var(--anyeye-light-blue); border-left: 4px solid var(--anyeye-blue); padding-left: 8px; }
         .visit-date { font-weight: bold; display: block; margin-bottom: 5px; color: var(--anyeye-blue); }
 
-        #loader { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: bold; }
+        #loader { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: bold; z-index: 500; }
 
         /* 모달 스타일 */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; justify-content: center; align-items: center; }
-        .modal-content { background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 400px; max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .modal-content { background: white; padding: 0; border-radius: 8px; width: 95vw; max-width: 900px; height: 85vh; display: flex; flex-direction: row; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow: hidden; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-weight: bold; font-size: 16px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
         .modal-close { cursor: pointer; font-size: 24px; color: #999; border: none; background: none; padding: 0; line-height: 1; }
         .modal-body { overflow-y: auto; flex: 1; }
-        .search-result-item { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; flex-direction: column; gap: 4px; }
+        
+        .search-result-item { padding: 15px 12px; border-bottom: 1px solid #eee; cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: 0.2s; }
         .search-result-item:hover { background: #f0f4f8; }
+        .search-result-item.active { background: #e8f4f8; border-left: 4px solid var(--anyeye-blue); }
         .search-result-name { font-weight: bold; color: var(--anyeye-blue); font-size: 15px; }
         .search-result-phone { font-size: 13px; color: #666; }
+        
+        /* 비밀번호 모달용 스타일 */
+        .pw-modal-content { background: white; padding: 30px; border-radius: 8px; width: 300px; display: flex; flex-direction: column; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .pw-input { padding: 10px; width: 100%; box-sizing: border-box; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; text-align: center; font-size: 16px; letter-spacing: 2px; }
+        .pw-btn { padding: 12px; width: 100%; background: var(--anyeye-blue); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 15px; }
+        .pw-btn:hover { background: #2c3a4d; }
     </style>
 </head>
 <body>
 
+<!-- 시작 시 비밀번호 인증 모달 -->
+<div id="passwordModal" class="modal-overlay" style="display: flex;">
+    <div class="pw-modal-content">
+        <h3 style="color: var(--anyeye-blue); margin-top: 0;">EYEGENTRY 온라인 뷰어</h3>
+        <p style="font-size: 13px; color: #666; margin-bottom: 20px;">🔒 힌트: 201호 비밀번호</p>
+        <input type="password" id="pwInput" class="pw-input" placeholder="비밀번호 입력" onkeypress="if(event.key === 'Enter') checkPassword()">
+        <button onclick="checkPassword()" class="pw-btn">확인</button>
+    </div>
+</div>
+
 <header>
-    <div><strong>EYEGENTRY</strong> 충남도청점</div>
-    <div id="syncTime" style="font-size: 12px;">동기화 중...</div>
+    <div><strong>EYEGENTRY</strong> 충남도청점 (조회 전용)</div>
+    <div id="syncTime" style="font-size: 12px;">데이터 준비 대기 중</div>
 </header>
 
-<div id="loader">데이터를 동기화하고 있습니다...</div>
+<div id="loader">데이터베이스를 불러오고 있습니다...</div>
 
 <div id="mainView" class="main-container" style="display: none;">
-    <!-- 좌측 영역: 고객정보 + 검안/매출 -->
-    <div style="display: flex; flex-direction: column; gap: 15px; overflow: hidden;">
-        
-        <!-- 상단: 고객 정보 (가로형) -->
-        <div class="section" style="flex-shrink: 0;">
-            <div class="section-title">고객 정보</div>
-            <div id="custInfo" style="padding: 15px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
-                <div style="display: flex; gap: 8px; flex: 1; min-width: 250px;">
-                    <input type="text" id="searchInput" placeholder="고객명 또는 전화번호" style="flex: 1; padding: 10px; border: 1px solid var(--anyeye-border); border-radius: 4px; font-size: 14px;" onkeypress="if(event.key === 'Enter') search()">
-                    <button onclick="search()" style="padding: 10px 15px; background: var(--anyeye-blue); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold;">검색</button>
-                </div>
-                <div style="flex: 2; display: flex; align-items: center; justify-content: space-between; min-width: 300px;">
-                    <div>
-                        <h2 id="viewName" style="margin: 0; color: var(--anyeye-blue); font-size: 18px;">고객을 선택하세요</h2>
-                        <p id="viewPhone" style="color: #666; margin: 5px 0 0; font-size: 13px;"></p>
+    <div class="top-grid" style="flex: 1.5; min-height: 0;">
+        <!-- 좌측: 고객정보 + 검안기록 -->
+        <div style="flex: 7; display: flex; flex-direction: column; gap: 15px; overflow: visible;">
+            <div class="section" style="flex-shrink: 0; overflow: visible;">
+                <div class="section-title">고객 정보 검색</div>
+                <div id="custInfo" style="padding: 15px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 8px; flex: 1; min-width: 250px;">
+                        <input type="text" id="searchInput" placeholder="고객명 또는 전화번호" style="flex: 1; padding: 10px; border: 1px solid var(--anyeye-border); border-radius: 4px; font-size: 14px;" onkeypress="if(event.key === 'Enter') { this.blur(); search(); }">
+                        <button onclick="search()" style="padding: 10px 15px; background: var(--anyeye-blue); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold;">검색</button>
                     </div>
-                    <div style="font-size: 13px; line-height: 1.5; color: #555;">
-                        생년월일: <span id="viewBirth">-</span><br>
-                        누적포인트: <span id="viewPoint" class="highlight">-</span>
-                    </div>
-                    <div style="position: relative;">
-                        <button onclick="showMemo()" style="padding: 8px 15px; background: #adb5bd; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;">특이사항 보기</button>
-                        <div id="viewMemoPopup" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 10px; background: #fff9db; padding: 15px; border: 1px solid #f39c12; border-radius: 5px; width: 250px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 9999; font-size: 13px;">
-                            <strong style="color: var(--accent-orange); display: block; margin-bottom: 5px;">고객 특이사항</strong>
-                            <span id="viewMemo">-</span>
+                    <div style="flex: 2; display: flex; align-items: center; justify-content: space-between; min-width: 300px;">
+                        <div>
+                            <h2 id="viewName" style="margin: 0; color: var(--anyeye-blue); font-size: 18px;">고객을 선택하세요</h2>
+                            <p id="viewPhone" style="color: #666; margin: 5px 0 0; font-size: 13px;"></p>
                         </div>
+                        <div style="font-size: 13px; line-height: 1.5; color: #555;">
+                            생년월일: <span id="viewBirth">-</span><br>
+                            누적포인트: <span id="viewPoint" class="highlight">-</span>
+                        </div>
+                        <div style="position: relative;">
+                            <button onclick="showMemo()" style="padding: 8px 15px; background: #adb5bd; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold;">특이사항 보기</button>
+                            <div id="viewMemoPopup" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 10px; background: #fff9db; padding: 15px; border: 1px solid #f39c12; border-radius: 5px; width: 250px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 9999; font-size: 13px;">
+                                <strong style="color: var(--accent-orange); display: block; margin-bottom: 5px;">고객 특이사항</strong>
+                                <span id="viewMemo">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section" style="flex: 1; background: #f8f9fa; display: flex; flex-direction: column; min-height: 0;">
+                <div class="section-title">검안 기록 (<span id="centerDate">최근</span>)</div>
+                <div style="padding: 10px; background: white; flex: 1; overflow-y: auto;">
+                    <div style="display: flex; gap: 15px;">
+                        <!-- 현재 도수 출력 박스 -->
+                        <div style="flex: 2; display: flex; flex-direction: column; gap: 10px;">
+                        <div>
+                            <div style="font-size: 12px; color: var(--anyeye-blue); font-weight: bold; margin-bottom: 6px;">[안경]</div>
+                            <div class="rx-grid">
+                                <div class="rx-cell"><div class="rx-label">구분</div><div class="rx-value" style="font-size:13px;">R</div><div class="rx-value" style="font-size:13px; border-top:1px solid #eee; margin-top:5px;">L</div></div>
+                                <div class="rx-cell"><div class="rx-label">SPH</div><div id="rSph" class="rx-value" style="font-size:13px;">-</div><div id="lSph" class="rx-value" style="font-size:13px; border-top:1px solid #eee; margin-top:5px;">-</div></div>
+                                <div class="rx-cell"><div class="rx-label">CYL</div><div id="rCyl" class="rx-value" style="font-size:13px;">-</div><div id="lCyl" class="rx-value" style="font-size:13px; border-top:1px solid #eee; margin-top:5px;">-</div></div>
+                                <div class="rx-cell"><div class="rx-label">AXIS</div><div id="rAxis" class="rx-value" style="font-size:13px;">-</div><div id="lAxis" class="rx-value" style="font-size:13px; border-top:1px solid #eee; margin-top:5px;">-</div></div>
+                                <div class="rx-cell"><div class="rx-label">ADD</div><div id="rAdd" class="rx-value" style="font-size:13px;">-</div><div id="lAdd" class="rx-value" style="font-size:13px; border-top:1px solid #eee; margin-top:5px;">-</div></div>
+                                <div class="rx-cell"><div class="rx-label">PD</div><div id="rPd" class="rx-value" style="font-size:13px;">-</div><div id="lPd" class="rx-value" style="font-size:13px; border-top:1px solid #eee; margin-top:5px;">-</div></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: var(--anyeye-blue); font-weight: bold; margin-bottom: 6px;">[콘택트렌즈]</div>
+                            <div class="rx-grid">
+                                <div class="rx-cell"><div class="rx-label">구분</div><div class="rx-value" style="font-size:13px;">R</div><div class="rx-value" style="font-size:13px; border-top:1px solid #eee; margin-top:5px;">L</div></div>
+                                <div class="rx-cell"><div class="rx-label">SPH</div><div id="clRSph" class="rx-value" style="font-size:13px;">-</div><div id="clLSph" class="rx-value" style="font-size:13px; border-top:1px solid #eee; margin-top:5px;">-</div></div>
+                                <div class="rx-cell"><div class="rx-label">CYL</div><div id="clRCyl" class="rx-value" style="font-size:13px;">-</div><div id="clLCyl" class="rx-value" style="font-size:13px; border-top:1px solid #eee; margin-top:5px;">-</div></div>
+                                <div class="rx-cell"><div class="rx-label">AXIS</div><div id="clRAxis" class="rx-value" style="font-size:13px;">-</div><div id="clLAxis" class="rx-value" style="font-size:13px; border-top:1px solid #eee; margin-top:5px;">-</div></div>
+                                <div class="rx-cell"><div class="rx-label">BC</div><div id="clRBc" class="rx-value" style="font-size:13px;">-</div><div id="clLBc" class="rx-value" style="font-size:13px; border-top:1px solid #eee; margin-top:5px;">-</div></div>
+                                <div class="rx-cell"><div class="rx-label">DIA</div><div id="clRDia" class="rx-value" style="font-size:13px;">-</div><div id="clLDia" class="rx-value" style="font-size:13px; border-top:1px solid #eee; margin-top:5px;">-</div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 해당일 매출 메모 출력부 -->
+                    <div style="flex: 0.8; display: flex; flex-direction: column; padding: 12px; background: #fff9db; border: 1px dashed #f39c12; border-radius: 4px; font-size: 13px;">
+                        <strong style="color: var(--accent-orange); margin-bottom: 8px;">📝 해당일 매출 메모</strong>
+                        <div id="viewSalesMemoText" style="color: #333; flex: 1; overflow-y: auto; white-space: pre-wrap; line-height: 1.5;">-</div>
+                    </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 하단: 검안 및 매출 정보 -->
-        <div class="section" style="background: #f8f9fa; flex: 1; position: relative;">
-            <div class="section-title">검안 정보 (<span id="centerDate">최근</span>)</div>
-            <div style="padding: 15px; background: white; display: flex; flex-direction: column; gap: 15px; overflow-y: auto;">
-                <!-- 현재 도수 -->
-                <div>
-                    <div style="font-size: 13px; color: var(--anyeye-blue); font-weight: bold; margin-bottom: 8px;">해당일 도수</div>
-                    <div style="display: flex; gap: 10px;">
-                        <div style="flex: 1;">
-                            <div style="font-size: 11px; color: #666; margin-bottom: 4px; font-weight: bold;">[안경]</div>
-                            <div class="rx-grid">
-                                <div class="rx-cell"><div class="rx-label">구분</div><div class="rx-value">R</div><div class="rx-value" style="border-top:1px solid #eee; margin-top:5px;">L</div></div>
-                                <div class="rx-cell"><div class="rx-label">SPH</div><div id="rSph" class="rx-value">-</div><div id="lSph" class="rx-value" style="border-top:1px solid #eee; margin-top:5px;">-</div></div>
-                                <div class="rx-cell"><div class="rx-label">CYL</div><div id="rCyl" class="rx-value">-</div><div id="lCyl" class="rx-value" style="border-top:1px solid #eee; margin-top:5px;">-</div></div>
-                                <div class="rx-cell"><div class="rx-label">AXIS</div><div id="rAxis" class="rx-value">-</div><div id="lAxis" class="rx-value" style="border-top:1px solid #eee; margin-top:5px;">-</div></div>
-                                <div class="rx-cell"><div class="rx-label">ADD</div><div id="rAdd" class="rx-value">-</div><div id="lAdd" class="rx-value" style="border-top:1px solid #eee; margin-top:5px;">-</div></div>
-                                <div class="rx-cell"><div class="rx-label">PD</div><div id="rPd" class="rx-value">-</div><div id="lPd" class="rx-value" style="border-top:1px solid #eee; margin-top:5px;">-</div></div>
-                            </div>
-                        </div>
-                        <div style="flex: 1;">
-                            <div style="font-size: 11px; color: #666; margin-bottom: 4px; font-weight: bold;">[콘택트렌즈]</div>
-                            <div class="rx-grid">
-                                <div class="rx-cell"><div class="rx-label">구분</div><div class="rx-value">R</div><div class="rx-value" style="border-top:1px solid #eee; margin-top:5px;">L</div></div>
-                                <div class="rx-cell"><div class="rx-label">SPH</div><div id="clRSph" class="rx-value">-</div><div id="clLSph" class="rx-value" style="border-top:1px solid #eee; margin-top:5px;">-</div></div>
-                                <div class="rx-cell"><div class="rx-label">CYL</div><div id="clRCyl" class="rx-value">-</div><div id="clLCyl" class="rx-value" style="border-top:1px solid #eee; margin-top:5px;">-</div></div>
-                                <div class="rx-cell"><div class="rx-label">AXIS</div><div id="clRAxis" class="rx-value">-</div><div id="clLAxis" class="rx-value" style="border-top:1px solid #eee; margin-top:5px;">-</div></div>
-                                <div class="rx-cell"><div class="rx-label">BC</div><div id="clRBc" class="rx-value">-</div><div id="clLBc" class="rx-value" style="border-top:1px solid #eee; margin-top:5px;">-</div></div>
-                                <div class="rx-cell"><div class="rx-label">DIA</div><div id="clRDia" class="rx-value">-</div><div id="clLDia" class="rx-value" style="border-top:1px solid #eee; margin-top:5px;">-</div></div>
-                            </div>
-                        </div>
-                    </div>
+        <!-- 우측: 히스토리 -->
+        <div style="flex: 3; display: flex; flex-direction: column; min-height: 0;">
+            <div class="section" style="flex: 1; display: flex; flex-direction: column;">
+                <div class="section-title" style="flex: none;">방문 히스토리</div>
+                <div id="historyList" style="overflow-y: auto; flex: 1;">
+                    <!-- 방문 날짜 리스트가 여기에 들어옴 -->
                 </div>
-                <!-- 이전 도수 -->
-                <div style="padding-top: 15px; border-top: 1px dashed #ddd;">
-                    <div style="font-size: 13px; color: #888; font-weight: bold; margin-bottom: 8px;">이전 도수 (<span id="prevDate">없음</span>)</div>
-                    <div style="display: flex; gap: 10px; opacity: 0.8;">
-                        <div style="flex: 1;">
-                            <div style="font-size: 11px; color: #666; margin-bottom: 4px; font-weight: bold;">[안경]</div>
-                            <div class="rx-grid" style="background: #f1f3f5;">
-                                <div class="rx-cell" style="background: transparent;"><div class="rx-label">구분</div><div class="rx-value" style="font-size:14px; color:#555;">R</div><div class="rx-value" style="font-size:14px; color:#555; border-top:1px solid #ddd; margin-top:5px;">L</div></div>
-                                <div class="rx-cell" style="background: transparent;"><div class="rx-label">SPH</div><div id="prevRSph" class="rx-value" style="font-size:14px; color:#555;">-</div><div id="prevLSph" class="rx-value" style="font-size:14px; color:#555; border-top:1px solid #ddd; margin-top:5px;">-</div></div>
-                                <div class="rx-cell" style="background: transparent;"><div class="rx-label">CYL</div><div id="prevRCyl" class="rx-value" style="font-size:14px; color:#555;">-</div><div id="prevLCyl" class="rx-value" style="font-size:14px; color:#555; border-top:1px solid #ddd; margin-top:5px;">-</div></div>
-                                <div class="rx-cell" style="background: transparent;"><div class="rx-label">AXIS</div><div id="prevRAxis" class="rx-value" style="font-size:14px; color:#555;">-</div><div id="prevLAxis" class="rx-value" style="font-size:14px; color:#555; border-top:1px solid #ddd; margin-top:5px;">-</div></div>
-                                <div class="rx-cell" style="background: transparent;"><div class="rx-label">ADD</div><div id="prevRAdd" class="rx-value" style="font-size:14px; color:#555;">-</div><div id="prevLAdd" class="rx-value" style="font-size:14px; color:#555; border-top:1px solid #ddd; margin-top:5px;">-</div></div>
-                                <div class="rx-cell" style="background: transparent;"><div class="rx-label">PD</div><div id="prevRPd" class="rx-value" style="font-size:14px; color:#555;">-</div><div id="prevLPd" class="rx-value" style="font-size:14px; color:#555; border-top:1px solid #ddd; margin-top:5px;">-</div></div>
-                            </div>
-                        </div>
-                        <div style="flex: 1;">
-                            <div style="font-size: 11px; color: #666; margin-bottom: 4px; font-weight: bold;">[콘택트렌즈]</div>
-                            <div class="rx-grid" style="background: #f1f3f5;">
-                                <div class="rx-cell" style="background: transparent;"><div class="rx-label">구분</div><div class="rx-value" style="font-size:14px; color:#555;">R</div><div class="rx-value" style="font-size:14px; color:#555; border-top:1px solid #ddd; margin-top:5px;">L</div></div>
-                                <div class="rx-cell" style="background: transparent;"><div class="rx-label">SPH</div><div id="prevClRSph" class="rx-value" style="font-size:14px; color:#555;">-</div><div id="prevClLSph" class="rx-value" style="font-size:14px; color:#555; border-top:1px solid #ddd; margin-top:5px;">-</div></div>
-                                <div class="rx-cell" style="background: transparent;"><div class="rx-label">CYL</div><div id="prevClRCyl" class="rx-value" style="font-size:14px; color:#555;">-</div><div id="prevClLCyl" class="rx-value" style="font-size:14px; color:#555; border-top:1px solid #ddd; margin-top:5px;">-</div></div>
-                                <div class="rx-cell" style="background: transparent;"><div class="rx-label">AXIS</div><div id="prevClRAxis" class="rx-value" style="font-size:14px; color:#555;">-</div><div id="prevClLAxis" class="rx-value" style="font-size:14px; color:#555; border-top:1px solid #ddd; margin-top:5px;">-</div></div>
-                                <div class="rx-cell" style="background: transparent;"><div class="rx-label">BC</div><div id="prevClRBc" class="rx-value" style="font-size:14px; color:#555;">-</div><div id="prevClLBc" class="rx-value" style="font-size:14px; color:#555; border-top:1px solid #ddd; margin-top:5px;">-</div></div>
-                                <div class="rx-cell" style="background: transparent;"><div class="rx-label">DIA</div><div id="prevClRDia" class="rx-value" style="font-size:14px; color:#555;">-</div><div id="prevClLDia" class="rx-value" style="font-size:14px; color:#555; border-top:1px solid #ddd; margin-top:5px;">-</div></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="section-title" style="margin-top: 0; border-top: 1px solid var(--anyeye-border); display: flex; justify-content: space-between; align-items: center;">
-                <span>해당일 매출 내역</span>
-                <div style="position: relative;">
-                    <button onclick="showSalesMemo()" style="padding: 6px 12px; background: #adb5bd; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">매출 특이사항</button>
-                    <div id="viewSalesMemoPopup" style="display: none; position: absolute; bottom: 100%; right: 0; margin-bottom: 10px; background: #fff9db; padding: 15px; border: 1px solid #f39c12; border-radius: 5px; width: 250px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); z-index: 9999; font-size: 13px;">
-                        <strong style="color: var(--accent-orange); display: block; margin-bottom: 5px;">해당일 매출 메모</strong>
-                        <span id="viewSalesMemo" style="color: var(--text-dark); font-weight: normal;">-</span>
-                    </div>
-                </div>
-            </div>
-            
-            <div style="flex: 1; background: white; overflow-y: auto;">
-                <table>
-                    <thead>
-                        <tr><th>품목</th><th>브랜드/상품명</th><th>수량</th><th>금액</th></tr>
-                    </thead>
-                    <tbody id="salesTable">
-                        <tr><td colspan="4" style="color: #ccc; padding: 50px;">검색 결과가 없습니다.</td></tr>
-                    </tbody>
-                </table>
             </div>
         </div>
     </div>
 
-    <!-- 우측: 히스토리 -->
-    <div class="section">
-        <div class="section-title">방문 히스토리</div>
-        <div id="historyList" style="overflow-y: auto; flex: 1;">
-            <!-- 방문 날짜 리스트가 여기에 들어옴 -->
+    <!-- 하단: 이전 기록 (구매 내역 조회 전용) -->
+    <div class="section" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+        <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>해당일 구매 내역</span>
+        </div>
+        <div style="flex: 1; background: white; overflow-y: auto;">
+            <table>
+                <thead>
+                    <tr><th>분류</th><th>브랜드</th><th>상품명</th><th>색상</th><th>수량</th><th>단가(총액)</th></tr>
+                </thead>
+                <tbody id="salesTable">
+                    <tr><td colspan="6" style="color: #ccc; padding: 50px;">기록이 없습니다.</td></tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 
 <!-- 검색 결과 모달 -->
-<div id="searchModal" class="modal-overlay">
+<div id="searchModal" class="modal-overlay" onclick="if(event.target === this) closeModal()">
     <div class="modal-content">
-        <div class="modal-header">
-            <span>검색 결과</span>
-            <button class="modal-close" onclick="closeModal()">&times;</button>
+        <div style="width: 35%; display: flex; flex-direction: column; border-right: 1px solid #eee; background: #fafafa;">
+            <div class="modal-header" style="padding: 15px; margin: 0; background: white;">
+                <span>검색 결과 (<span id="searchResultCount">0</span>)</span>
+            </div>
+            <div id="modalResultList" class="modal-body" style="padding: 0; background: #fff;">
+            </div>
         </div>
-        <div id="modalResultList" class="modal-body">
+        
+        <div style="width: 65%; display: flex; flex-direction: column; position: relative; background: #f4f6f8;">
+            <button class="modal-close" onclick="closeModal()" style="position: absolute; right: 15px; top: 15px; z-index: 10;">&times;</button>
+            
+            <div id="modalPreviewArea" style="flex: 1; padding: 20px; overflow-y: auto; display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--anyeye-blue); padding-bottom: 15px; margin-bottom: 15px; padding-right: 40px;">
+                    <div>
+                        <h2 id="previewName" style="margin: 0; color: var(--anyeye-blue); font-size: 20px;">이름</h2>
+                        <p id="previewPhone" style="margin: 5px 0 0; font-size: 14px; color: #666;"></p>
+                    </div>
+                    <button onclick="confirmCustomerSelection()" style="padding: 12px 25px; background: var(--accent-orange); color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 15px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">이 고객 조회하기</button>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="font-weight: bold; font-size: 13px; color: var(--anyeye-blue);">📅 방문 일자 조회:</label>
+                    <select id="previewDateSelect" style="width: 100%; padding: 10px; margin-top: 5px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; font-weight: bold;" onchange="updatePreviewDate()"></select>
+                </div>
+                
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div style="flex: 1; background: white; padding: 15px; border-radius: 6px; border: 1px solid #ddd; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <div style="font-weight: bold; font-size: 14px; margin-bottom: 10px; color: var(--anyeye-blue); border-bottom: 1px solid #eee; padding-bottom: 5px;">👓 검안 정보</div>
+                        <div id="previewOptic" style="font-size: 13px; line-height: 1.6; color: #444;"></div>
+                    </div>
+                    <div style="flex: 1; background: white; padding: 15px; border-radius: 6px; border: 1px solid #ddd; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <div style="font-weight: bold; font-size: 14px; margin-bottom: 10px; color: var(--anyeye-blue); border-bottom: 1px solid #eee; padding-bottom: 5px;">🛒 구매 내역</div>
+                        <div id="previewSales" style="font-size: 13px; line-height: 1.6; color: #444;"></div>
+                    </div>
+                </div>
+                <div style="background: #fff9db; padding: 15px; border-radius: 6px; border: 1px dashed #f39c12; font-size: 13px;">
+                    <strong style="color: var(--accent-orange); display: block; margin-bottom: 5px;">📝 매출 메모 / 특이사항:</strong>
+                    <div id="previewMemo" style="color: #333; white-space: pre-wrap; line-height: 1.5;"></div>
+                </div>
+            </div>
+            
+            <div id="modalEmptyPreview" style="flex: 1; display: flex; justify-content: center; align-items: center; color: #888; font-size: 15px;">
+                👈 좌측에서 고객을 선택하면 과거 기록이 표시됩니다.
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-    // 구글 시트 CSV 주소 (파일 -> 공유 -> 웹에 게시 후 생성된 csv 링크로 변경하세요)
-    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTb0McCpoylQYk0pvmopagms9KBDbCOmKjkMsqF7XiCbCJ99ZH53ak3KcrLgT1UNvHTfkyC8opbvEVT/pub?output=csv';
     let fullData = [];
     let currentCustomer = null;
     let currentSortedDates = [];
+    let previewCustomerData = null;
+    
+    // 💡 GitHub Pages 호스팅용 주의사항:
+    // 온라인 배포 시 백엔드 서버(localhost:5000)를 사용할 수 없습니다.
+    // 따라서 DB 데이터를 JSON 형식(customers.json)으로 추출하여 깃허브에 함께 올리고
+    // 아래 URL을 `customers.json` 으로 변경해야 합니다.
+    const SERVER_URL = window.location.protocol === 'file:' 
+        ? 'http://localhost:5000' 
+        : `http://${window.location.hostname}:5000`; // 온라인일 경우 백엔드 주소나 json 경로로 변경하세요.
+
+    // 비밀번호 체크 로직
+    function checkPassword() {
+        const pw = document.getElementById('pwInput').value;
+        if (pw === '131005') {
+            document.getElementById('passwordModal').style.display = 'none';
+            init(); // 비밀번호 맞으면 초기 데이터 로드 실행
+        } else {
+            alert('비밀번호가 틀렸습니다.');
+            document.getElementById('pwInput').value = '';
+        }
+    }
 
     async function init() {
+        document.getElementById('loader').style.display = 'block';
+        
         try {
-            const res = await fetch(CSV_URL);
-            const text = await res.text();
+            const res = await fetch('customers.json');
+            if (!res.ok) throw new Error('서버 또는 파일을 찾을 수 없습니다.');
             
-            // CSV 안전 파싱 (데이터 내 쉼표가 있어도 깨지지 않도록 처리)
-            const parsedRows = [];
-            for (let line of text.split('\n')) {
-                if (!line.trim()) continue;
-                let row = [], cur = '', inQuote = false;
-                for (let char of line) {
-                    if (char === '"') inQuote = !inQuote;
-                    else if (char === ',' && !inQuote) { row.push(cur.trim()); cur = ''; }
-                    else cur += char;
-                }
-                row.push(cur.trim());
-                parsedRows.push(row);
-            }
-
-            const headers = parsedRows[0].map(h => h.trim());
+            const data = await res.json();
+            // 정적 JSON을 로드할 경우 data.customers 대신 data 자체를 사용하도록 분기처리 필요할 수 있음
+            fullData = data.customers || data; 
             
-            const rawData = parsedRows.slice(1).map(row => {
-                let obj = {};
-                headers.forEach((h, i) => obj[h] = row[i] ? row[i].trim() : "");
-                return obj;
-            });
-
-            // 고객 정보(이름, 연락처, 생년월일) 기준으로 데이터 병합
-            const groupedMap = {};
-            rawData.forEach(d => {
-                const key = `${d.이름}_${d.연락처}_${d.생년월일}`;
-                if (!groupedMap[key]) {
-                    groupedMap[key] = {
-                        이름: d.이름, 연락처: d.연락처, 생년월일: d.생년월일,
-                        누적포인트: d.누적포인트, 특이사항: d.특이사항,
-                        records: [] // 구매 내역들을 저장할 배열
-                    };
-                }
-                groupedMap[key].records.push(d);
-            });
-            fullData = Object.values(groupedMap);
-
             document.getElementById('loader').style.display = 'none';
-            document.getElementById('mainView').style.display = 'grid';
-            document.getElementById('syncTime').innerText = '최신 동기화 완료';
+            document.getElementById('mainView').style.display = 'flex';
+            
+            const now = new Date();
+            const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            document.getElementById('syncTime').innerText = `데이터 연결 완료 (${timeString})`;
+            
         } catch (e) {
-            document.getElementById('loader').innerText = '데이터 로드 실패';
+            document.getElementById('loader').innerText = '데이터 로드 실패 (온라인 환경 설정이나 서버를 확인하세요)';
         }
     }
 
     function search() {
+        document.getElementById('searchInput').blur();
         const val = document.getElementById('searchInput').value.trim().toLowerCase();
         if(val.length < 2) {
             alert('2글자 이상 입력해주세요.');
@@ -274,48 +295,131 @@
             alert('검색 결과가 없습니다.');
             return;
         }
-
         showModal(results);
     }
 
     function showModal(results) {
         const listContainer = document.getElementById('modalResultList');
         listContainer.innerHTML = '';
+        
+        document.getElementById('searchResultCount').innerText = results.length;
+        document.getElementById('modalPreviewArea').style.display = 'none';
+        document.getElementById('modalEmptyPreview').style.display = 'flex';
 
-        results.forEach((customer) => {
+        results.forEach((customer, index) => {
             const item = document.createElement('div');
             item.className = 'search-result-item';
-            item.onclick = () => selectCustomer(customer);
+            item.id = `search_item_${index}`;
+            item.onclick = () => selectPreview(customer, index);
             item.innerHTML = `
                 <div class="search-result-name">${customer.이름 || '이름 없음'}</div>
-                <div class="search-result-phone">${customer.연락처 || '연락처 없음'}</div>
+                <div class="search-result-phone">📞 ${customer.연락처 || '없음'} &nbsp;|&nbsp; 🎂 ${customer.생년월일 || '생년월일 없음'}</div>
             `;
             listContainer.appendChild(item);
         });
 
         document.getElementById('searchModal').style.display = 'flex';
+        
+        // 리스트가 있으면 첫 번째 항목 자동 선택
+        if (results.length > 0) {
+            selectPreview(results[0], 0);
+        }
+    }
+    
+    function selectPreview(customer, index) {
+        document.querySelectorAll('.search-result-item').forEach(el => el.classList.remove('active'));
+        document.getElementById(`search_item_${index}`).classList.add('active');
+
+        previewCustomerData = customer;
+        document.getElementById('modalEmptyPreview').style.display = 'none';
+        document.getElementById('modalPreviewArea').style.display = 'flex';
+        document.getElementById('modalPreviewArea').style.flexDirection = 'column';
+
+        document.getElementById('previewName').innerText = customer.이름 || '-';
+        document.getElementById('previewPhone').innerText = `📞 ${customer.연락처 || '-'} | 🎂 ${customer.생년월일 || '-'}`;
+
+        const groupedByDate = {};
+        if(customer.records) {
+            customer.records.forEach(d => {
+                const date = d.판매일 || '날짜없음';
+                if (!groupedByDate[date]) groupedByDate[date] = [];
+                groupedByDate[date].push(d);
+            });
+        }
+
+        const sortedDates = Object.keys(groupedByDate).sort((a, b) => {
+            if (a === '날짜없음') return 1;
+            if (b === '날짜없음') return -1;
+            return new Date(b) - new Date(a);
+        });
+        
+        const dateSelect = document.getElementById('previewDateSelect');
+        dateSelect.innerHTML = sortedDates.map(date => `<option value="${date}">${date}</option>`).join('');
+        
+        previewCustomerData.groupedRecords = groupedByDate;
+        
+        if (sortedDates.length > 0) {
+            updatePreviewDate();
+        } else {
+            document.getElementById('previewOptic').innerHTML = '도수 기록 없음';
+            document.getElementById('previewSales').innerHTML = '구매 내역 없음';
+            document.getElementById('previewMemo').innerText = '저장된 특이사항/메모가 없습니다.';
+        }
+    }
+
+    function updatePreviewDate() {
+        if (!previewCustomerData) return;
+        const date = document.getElementById('previewDateSelect').value;
+        const records = previewCustomerData.groupedRecords[date] || [];
+        
+        const optData = records.find(r => (r.우_S !== undefined && r.우_S !== '') || (r.좌_S !== undefined && r.좌_S !== '') || (r.콘택트_우_S !== undefined && r.콘택트_우_S !== '')) || records[0] || {};
+        
+        let opticHtml = '';
+        if (optData.우_S || optData.좌_S) {
+            opticHtml += `<strong style="color:var(--anyeye-blue);">[안경]</strong><br>
+                R: SPH ${optData.우_S||'-'} / CYL ${optData.우_C||'-'} / AXIS ${optData.우_A||'-'} / ADD ${optData.우_ADD||optData.ADD||'-'} / PD ${optData.우_PD||'-'}<br>
+                L: SPH ${optData.좌_S||'-'} / CYL ${optData.좌_C||'-'} / AXIS ${optData.좌_A||'-'} / ADD ${optData.좌_ADD||optData.ADD||'-'} / PD ${optData.좌_PD||'-'}<br><br>`;
+        }
+        if (optData.콘택트_우_S || optData.콘택트_좌_S) {
+            opticHtml += `<strong style="color:var(--anyeye-blue);">[콘택트렌즈]</strong><br>
+                R: SPH ${optData.콘택트_우_S||'-'} / CYL ${optData.콘택트_우_C||'-'} / AXIS ${optData.콘택트_우_A||'-'} / BC ${optData.콘택트_우_BC||'-'} / DIA ${optData.콘택트_우_DIA||'-'}<br>
+                L: SPH ${optData.콘택트_좌_S||'-'} / CYL ${optData.콘택트_좌_C||'-'} / AXIS ${optData.콘택트_좌_A||'-'} / BC ${optData.콘택트_좌_BC||'-'} / DIA ${optData.콘택트_좌_DIA||'-'}`;
+        }
+        document.getElementById('previewOptic').innerHTML = opticHtml || '도수 기록 없음';
+
+        let salesHtml = '';
+        let total = 0;
+        records.forEach(d => {
+            if (d.상품명 && d.상품명.trim() !== '') {
+                const qty = Number(d.판매수량 || 1);
+                const price = Number(d.판매단가 || 0) * qty;
+                total += price;
+                salesHtml += `• ${d.상품명} (${qty}개) : ${price.toLocaleString()}원<br>`;
+            }
+        });
+        if (total > 0) {
+            salesHtml += `<br><strong style="color:var(--accent-orange);">총 결제금액: ${total.toLocaleString()}원</strong>`;
+        }
+        document.getElementById('previewSales').innerHTML = salesHtml || '구매 내역 없음';
+
+        const memo = records.map(r => r.판매메모 || r.메모 || r.판매일메모).find(m => m && m.trim() !== '') || '';
+        document.getElementById('previewMemo').innerText = memo || '저장된 메모가 없습니다.';
+    }
+    
+    function confirmCustomerSelection() {
+        if(previewCustomerData) {
+            updateUI(previewCustomerData);
+            closeModal();
+            document.getElementById('searchInput').value = '';
+        }
     }
 
     function closeModal() {
         document.getElementById('searchModal').style.display = 'none';
     }
 
-    function selectCustomer(customer) {
-        updateUI(customer);
-        closeModal();
-        document.getElementById('searchInput').value = '';
-    }
-
     function showMemo() {
         const memoPopup = document.getElementById('viewMemoPopup');
-        memoPopup.style.display = 'block';
-        setTimeout(() => {
-            memoPopup.style.display = 'none';
-        }, 2500);
-    }
-
-    function showSalesMemo() {
-        const memoPopup = document.getElementById('viewSalesMemoPopup');
         memoPopup.style.display = 'block';
         setTimeout(() => {
             memoPopup.style.display = 'none';
@@ -329,16 +433,16 @@
         document.getElementById('viewBirth').innerText = customer.생년월일 || '-';
         document.getElementById('viewPoint').innerText = customer.누적포인트 || '-';
         document.getElementById('viewMemo').innerText = customer.특이사항 || '-';
-
-        // 방문 내역(판매일) 기준으로 그룹화
+        
         const groupedByDate = {};
-        customer.records.forEach(d => {
-            const date = d.판매일 || '날짜없음';
-            if (!groupedByDate[date]) groupedByDate[date] = [];
-            groupedByDate[date].push(d);
-        });
+        if(customer.records) {
+            customer.records.forEach(d => {
+                const date = d.판매일 || '날짜없음';
+                if (!groupedByDate[date]) groupedByDate[date] = [];
+                groupedByDate[date].push(d);
+            });
+        }
 
-        // 날짜 내림차순 정렬
         const sortedDates = Object.keys(groupedByDate).sort((a, b) => {
             if (a === '날짜없음') return 1;
             if (b === '날짜없음') return -1;
@@ -346,14 +450,18 @@
         });
         currentSortedDates = sortedDates;
 
-        // 우측 방문 히스토리 렌더링 (날짜별 1개씩 묶어서 표시)
         const historyHtml = sortedDates.map((date, index) => {
             const records = groupedByDate[date];
-            const products = records.map(r => r.상품명).filter(Boolean);
-            let productSummary = products[0] || '상품명 없음';
-            if (products.length > 1) {
-                productSummary += ` 외 ${products.length - 1}건`;
+            const validProducts = records.filter(r => r.상품명 && r.상품명.trim() !== '').map(r => r.상품명.trim());
+            
+            let productSummary = '검안/메모 기록';
+            if (validProducts.length > 0) {
+                productSummary = validProducts[0];
+                if (validProducts.length > 1) {
+                    productSummary += ` 외 ${validProducts.length - 1}건`;
+                }
             }
+            
             return `
                 <div class="visit-item" id="visit_${index}" onclick="selectVisitDate('${date}', ${index})">
                     <span class="visit-date">${date}</span>${productSummary}
@@ -362,25 +470,21 @@
         }).join('');
         document.getElementById('historyList').innerHTML = historyHtml || '<div class="visit-item" style="text-align:center;">방문 내역이 없습니다.</div>';
 
-        // 가장 최근 날짜를 기본으로 선택하여 중앙 화면 업데이트
         if (sortedDates.length > 0) {
             selectVisitDate(sortedDates[0], 0);
         }
     }
 
     function selectVisitDate(date, index) {
-        // 활성화된 히스토리 아이템 스타일 강조
         document.querySelectorAll('.visit-item').forEach(el => el.classList.remove('active'));
         const activeItem = document.getElementById(`visit_${index}`);
         if (activeItem) activeItem.classList.add('active');
 
         document.getElementById('centerDate').innerText = date;
 
-        // 선택한 날짜의 데이터 필터링
         const records = currentCustomer.records.filter(d => (d.판매일 || '날짜없음') === date);
-        const optData = records[0] || {};
+        const optData = records.find(r => (r.우_S !== undefined && r.우_S !== '') || (r.좌_S !== undefined && r.좌_S !== '') || (r.콘택트_우_S !== undefined && r.콘택트_우_S !== '')) || records[0] || {};
 
-        // 검안 정보 업데이트 (해당 일자의 첫 번째 데이터 기준)
         document.getElementById('rSph').innerText = optData.우_S || '-';
         document.getElementById('lSph').innerText = optData.좌_S || '-';
         document.getElementById('rCyl').innerText = optData.우_C || '-';
@@ -389,7 +493,8 @@
         document.getElementById('lAxis').innerText = optData.좌_A || '-';
         document.getElementById('rPd').innerText = optData.우_PD || '-';
         document.getElementById('lPd').innerText = optData.좌_PD || '-';
-        document.getElementById('rAdd').innerText = optData.ADD || '0.00';
+        document.getElementById('rAdd').innerText = optData.우_ADD || optData.ADD || '-';
+        document.getElementById('lAdd').innerText = optData.좌_ADD || optData.ADD || '-';
         
         document.getElementById('clRSph').innerText = optData.콘택트_우_S || '-';
         document.getElementById('clLSph').innerText = optData.콘택트_좌_S || '-';
@@ -402,58 +507,40 @@
         document.getElementById('clRDia').innerText = optData.콘택트_우_DIA || '-';
         document.getElementById('clLDia').innerText = optData.콘택트_좌_DIA || '-';
 
-        // 이전 검안 도수 업데이트
-        const prevDate = currentSortedDates[index + 1];
-        if (prevDate) {
-            document.getElementById('prevDate').innerText = prevDate;
-            const prevRecords = currentCustomer.records.filter(d => (d.판매일 || '날짜없음') === prevDate);
-            const prevOptData = prevRecords[0] || {};
-            document.getElementById('prevRSph').innerText = prevOptData.우_S || '-';
-            document.getElementById('prevLSph').innerText = prevOptData.좌_S || '-';
-            document.getElementById('prevRCyl').innerText = prevOptData.우_C || '-';
-            document.getElementById('prevLCyl').innerText = prevOptData.좌_C || '-';
-            document.getElementById('prevRAxis').innerText = prevOptData.우_A || '-';
-            document.getElementById('prevLAxis').innerText = prevOptData.좌_A || '-';
-            document.getElementById('prevRPd').innerText = prevOptData.우_PD || '-';
-            document.getElementById('prevLPd').innerText = prevOptData.좌_PD || '-';
-            document.getElementById('prevRAdd').innerText = prevOptData.ADD || '-';
-
-            document.getElementById('prevClRSph').innerText = prevOptData.콘택트_우_S || '-';
-            document.getElementById('prevClLSph').innerText = prevOptData.콘택트_좌_S || '-';
-            document.getElementById('prevClRCyl').innerText = prevOptData.콘택트_우_C || '-';
-            document.getElementById('prevClLCyl').innerText = prevOptData.콘택트_좌_C || '-';
-            document.getElementById('prevClRAxis').innerText = prevOptData.콘택트_우_A || '-';
-            document.getElementById('prevClLAxis').innerText = prevOptData.콘택트_좌_A || '-';
-            document.getElementById('prevClRBc').innerText = prevOptData.콘택트_우_BC || '-';
-            document.getElementById('prevClLBc').innerText = prevOptData.콘택트_좌_BC || '-';
-            document.getElementById('prevClRDia').innerText = prevOptData.콘택트_우_DIA || '-';
-            document.getElementById('prevClLDia').innerText = prevOptData.콘택트_좌_DIA || '-';
-        } else {
-            document.getElementById('prevDate').innerText = '없음';
-            document.querySelectorAll('[id^="prevR"], [id^="prevL"], [id^="prevCl"]').forEach(el => el.innerText = '-');
-        }
-
-        // 해당일 판매 메모 표시 (여러 항목 중 메모가 있는 첫 번째 항목 사용)
         const memo = records.map(r => r.판매메모 || r.메모 || r.판매일메모).find(m => m && m.trim() !== '') || '';
-        if (memo) {
-            document.getElementById('viewSalesMemo').innerText = memo;
-        } else {
-            document.getElementById('viewSalesMemo').innerText = '메모가 없습니다.';
-        }
+        document.getElementById('viewSalesMemoText').innerText = memo || '저장된 메모가 없습니다.';
 
-        // 해당일 매출 내역 업데이트
-        const salesHtml = records.map(d => `
-            <tr>
-                <td>${d.품목 || '렌즈'}</td>
-                <td style="text-align: left;"><strong>${d.브랜드 || '-'}</strong><br>${d.상품명 || '-'}</td>
-                <td>${d.수량 || '1'}</td>
-                <td>${Number(d.결제금액 || 0).toLocaleString()}원</td>
-            </tr>
-        `).join('');
-        document.getElementById('salesTable').innerHTML = salesHtml || '<tr><td colspan="4" style="text-align:center; padding:50px;">내역이 없습니다.</td></tr>';
+        let totalSum = 0;
+        const salesRows = [];
+
+        records.forEach(d => {
+            if (d.상품명 && d.상품명.trim() !== '') {
+                const qty = Number(d.판매수량 || 1);
+                const unitPrice = Number(d.판매단가 || 0);
+                const rowTotal = unitPrice * qty;
+                totalSum += rowTotal;
+                
+                salesRows.push(`<tr>
+                    <td>${d.분류 || d.품목 || '-'}</td>
+                    <td>${d.브랜드 || '-'}</td>
+                    <td style="text-align: left; font-weight: bold; color: var(--anyeye-blue);">${d.상품명}</td>
+                    <td>${d.색상 || '-'}</td>
+                    <td>${qty}</td>
+                    <td>${rowTotal.toLocaleString()}원</td>
+                </tr>`);
+            }
+        });
+        
+        let salesHtml = salesRows.join('');
+        if (salesRows.length > 0) {
+            salesHtml += `<tr style="background: #fff9db; font-weight: bold; color: var(--accent-orange);">
+                <td colspan="5" style="text-align: right; padding-right: 15px; border-right: none;">총 결제 금액</td>
+                <td style="border-left: none;">${totalSum.toLocaleString()}원</td>
+            </tr>`;
+        }
+        document.getElementById('salesTable').innerHTML = salesHtml || '<tr><td colspan="6" style="text-align:center; padding:50px;">내역이 없습니다.</td></tr>';
     }
 
-    window.onload = init;
 </script>
 </body>
 </html>
